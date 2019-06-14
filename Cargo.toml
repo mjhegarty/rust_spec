@@ -1,0 +1,11 @@
+[package]
+name = "rust_spec"
+version = "0.1.0"
+authors = ["mjhegarty <mhegarty@gwu.edu>"]
+edition = "2018"
+build = "build.rs"
+links = "rtlsdr"
+
+
+[dependencies]
+libc = "0.2"
