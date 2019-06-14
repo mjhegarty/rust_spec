@@ -8,16 +8,19 @@ use std::time;
 use std::thread::{sleep};
 //person who also did this did something like this
 enum rtlsdr_dev_t {}
-enum rtl_warn{
-    no_issue,
-    pipe,
-    etc,
+enum RtlWarn{
+    NoIssue,
+    Pipe,
+    Etc,
 }
 
 //Struct to store IQ data in. Would be interesting to see if
 struct IQdata{
     in_phase: Vec<u8>,
     quad: Vec<u8>,
+}
+struct RTL_SDR{
+   dev: *mut rtlsdr_dev_t, 
 }
 
 
@@ -27,18 +30,16 @@ fn main() {
         println!("{}",rtlsdr_get_device_count());
         println!("{:?}", c_string_to_r_string(rtlsdr_get_device_name(0)));
     }
-    let dev = open_device(0);
-    set_center_freq(dev, 99500000);
-    println!("center freq verified as {}", get_center_freq(dev));
-    set_sample_rate(dev, 2048000); 
-    println!("sample rate verified as {}", get_sample_rate(dev));
-    reset_buffer(dev);
-    let (buf, nread, err) = read_sync(dev, 1024);
+    let mut dev = RTL_SDR::new();
+    dev.set_center_freq(99500000);
+    println!("center freq verified as {}", dev.get_center_freq());
+    dev.set_sample_rate(2048000); 
+    println!("sample rate verified as {}", dev.get_sample_rate());
+    dev.reset_buffer();
+    let (buf, nread, err) = dev.read_sync(1024);
     println!("read error returned...{:?}", err);
-    close_device(dev);
+    dev.close_device();
     let data = IQdata::new(buf,1024);
-    println!("I data {:?}", data.in_phase);
-    println!("Q data {:?}", data.quad);
     data.write("test.txt".to_string());
 }
 
@@ -48,7 +49,7 @@ fn main() {
 
 
 
-fn c_int_to_warning(error: c_int) -> rtl_warn {
+fn c_int_to_warning(error: c_int) -> RtlWarn {
     unimplemented!()
 }
 fn c_string_to_r_string(c: *const c_char) -> String{
@@ -74,7 +75,75 @@ extern "C" {
 
 
 //rtlsdrlibrary overhead functions
+impl RTL_SDR{
+    pub fn new() ->Self{
+        //TODO add indexing for multiple devices? 
+        unsafe{//not sure if all of this needs unsafe
+            assert!(rtlsdr_get_device_count()>0, "No device found");
+            let mut dev: *mut rtlsdr_dev_t = std::ptr::null_mut();
+            let result = rtlsdr_open(&mut dev as *mut *mut rtlsdr_dev_t, 0);
+            println! ("result of open is ... {}", result);
+            RTL_SDR{dev: dev as *mut rtlsdr_dev_t}
+        }
+    }
+    pub fn close_device(self) -> () {
+        unsafe{
+            let result = rtlsdr_close(self.dev);
+            //TODO add some sorta free function for self.dev
+            println!("result of close is ... {}", result);
+            
+        }
+    }
+    pub fn set_center_freq(&mut self, freq: u32) -> () {
+        unsafe{
+            let result = rtlsdr_set_center_freq(self.dev, freq);
+            println! ("result of setting center frequency is ... {}", result);
+        }
+    }
+    fn get_center_freq(&self) -> u32 {
+        unsafe{
+            let center_freq = rtlsdr_get_center_freq(self.dev) as u32;
+            center_freq
+        }
+    }
+    fn set_sample_rate(&mut self, samp_rate: u32) -> () {
+        unsafe{
+            let result = rtlsdr_set_sample_rate(self.dev, samp_rate);
+            println! ("result of setting sample rate is ... {}", result);
+        }
+    }
+    fn get_sample_rate(&self) -> u32 {
+        unsafe{
+            let sample_rate = rtlsdr_get_sample_rate(self.dev) as u32;
+            sample_rate
+        }
+    }
+    //So reading through the documentation of the c functions, I am fairly
+    //certain that read_sync returns alternating IQ data values starting with I
+    //so therefore a higher level function that calls read sync to read values
+    //should double the number of points it puts on
+    //
+    fn read_sync(&mut self, len: i32) -> (Vec<u8>, i32, i32) {
+        let mut buf = vec![0u8; len as usize];
+        let mut n_read: i32 = 0;
+        //TODO: how the c code does read sync is they have a block size of min 512 blocks and
+        //they have a seperate bytes to read function that gets that amount subtracted from it
+        //every time they read in bytes. See RTL_SDR.c line 236 for details
+        unsafe{
+            let err = rtlsdr_read_sync(self.dev,buf.as_mut_ptr() as *mut c_void, len,&mut n_read as *mut c_int); 
+            (buf, n_read, err)
+        }
+    }
+    //Documentation for C code says to run this function before any reads
+    fn reset_buffer(&mut self) -> (){
+        unsafe{
+            let result = rtlsdr_reset_buffer(self.dev);
+            println!("The result of resetting buffer is ... {}", result);
+        }
 
+    }
+
+}
 fn open_device(index: u32) -> *mut rtlsdr_dev_t {
     unsafe{
         let mut dev: *mut rtlsdr_dev_t = std::ptr::null_mut();
@@ -83,61 +152,17 @@ fn open_device(index: u32) -> *mut rtlsdr_dev_t {
         dev as *mut rtlsdr_dev_t
     }
 }
-fn close_device(dev: *mut rtlsdr_dev_t) -> () {
-   unsafe{
-        let result = rtlsdr_close(dev);
-        println!("result of close is ... {}", result);
-        
-   }
-}
-fn set_center_freq(dev: *mut rtlsdr_dev_t, freq: u32) -> () {
-    unsafe{
-        let result = rtlsdr_set_center_freq(dev, freq);
-        println! ("result of setting center frequency is ... {}", result);
-    }
-}
-fn get_center_freq(dev: *mut rtlsdr_dev_t) -> u32 {
-    unsafe{
-        let center_freq = rtlsdr_get_center_freq(dev) as u32;
-        center_freq
-    }
-}
-fn set_sample_rate(dev: *mut rtlsdr_dev_t, samp_rate: u32) -> () {
-    unsafe{
-        let result = rtlsdr_set_sample_rate(dev, samp_rate);
-        println! ("result of setting sample rate is ... {}", result);
-    }
-}
-fn get_sample_rate(dev: *mut rtlsdr_dev_t) -> u32 {
-    unsafe{
-        let sample_rate = rtlsdr_get_sample_rate(dev) as u32;
-        sample_rate
-    }
-}
-//So reading through the documentation of the c functions, I am fairly
-//certain that read_sync returns alternating IQ data values starting with I
-//so therefore a higher level function that calls read sync to read values
-//should double the number of points it puts on
-fn read_sync(dev: *mut rtlsdr_dev_t, len: i32) -> (Vec<u8>, i32, i32) {
-    let mut buf = vec![0u8; len as usize];
-    let mut n_read: i32 = 0;
-    unsafe{
-        let err = rtlsdr_read_sync(dev,buf.as_mut_ptr() as *mut c_void, len,&mut n_read as *mut c_int); 
-        (buf, n_read, err)
-    }
-}
-//Documentation for C code says to run this function before any reads
-fn reset_buffer(dev: *mut rtlsdr_dev_t) -> (){
-    unsafe{
-        let result = rtlsdr_reset_buffer(dev);
-        println!("The result of resetting buffer is ... {}", result);
-    }
-
-}
 
 //**Implementations of IQdata
 impl IQdata{
+    
 
+    /*Line 282 in rtl_fm.c is how I think they make thier IQ data
+     * it's really jank becuase it's in C so they do some B.S. magic
+     * instead of just spelling out what they do but I think it has something to do with how every
+     * value is 90 degrees away from each other
+     *
+     */
     fn new(raw_data:Vec<u8>,size:i32 ) -> Self {
         assert!(size%2==0, "uneven number of samples how?");
         //let mut I = vec![0u8; (size/2) as usize];
@@ -156,7 +181,7 @@ impl IQdata{
         let mut f = OpenOptions::new().read(true)
                                         .write(true)
                                         .create(true)
-                                        .append(true)
+                                        .append(false)
                                         .open(filename)
                                         .unwrap();
         
