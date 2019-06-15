@@ -9,9 +9,32 @@ use std::thread::{sleep};
 //person who also did this did something like this
 enum rtlsdr_dev_t {}
 enum RtlWarn{
-    NoIssue,
+    NoError,
+    Io,
+
     Pipe,
     Etc,
+}
+//Errors as listed in jpoirier's implementation
+pub enum Error {
+    NoError,
+    Io,
+    InvalidParam,
+    Access,
+    NoDevice,
+    NotFound,
+    Busy,
+    Timeout,
+    Overflow,
+    Pipe,
+    Interrupted,
+    NoMem,
+    NotSupported,
+    NoValidEEPROMHeader,
+    StringValueTooLong,
+    StringDescriptorInvalid,
+    StringDescriptorTooLong,
+    Unknown,
 }
 
 //Struct to store IQ data in. Would be interesting to see if
@@ -20,7 +43,7 @@ struct IQdata{
     quad: Vec<u8>,
 }
 struct RTL_SDR{
-   dev: *mut rtlsdr_dev_t, 
+   dev: *mut rtlsdr_dev_t,
 }
 
 
@@ -33,13 +56,13 @@ fn main() {
     let mut dev = RTL_SDR::new();
     dev.set_center_freq(99500000);
     println!("center freq verified as {}", dev.get_center_freq());
-    dev.set_sample_rate(2048000); 
+    dev.set_sample_rate(2048000);
     println!("sample rate verified as {}", dev.get_sample_rate());
     dev.reset_buffer();
-    let (buf, nread, err) = dev.read_sync(1024);
+    let (buf, nread, err) = dev.read_sync(1024 ,1024*32);
     println!("read error returned...{:?}", err);
     dev.close_device();
-    let data = IQdata::new(buf,1024);
+    let data = IQdata::new(buf,1024*32*2);
     data.write("test.txt".to_string());
 }
 
@@ -77,7 +100,7 @@ extern "C" {
 //rtlsdrlibrary overhead functions
 impl RTL_SDR{
     pub fn new() ->Self{
-        //TODO add indexing for multiple devices? 
+        //TODO add indexing for multiple devices?
         unsafe{//not sure if all of this needs unsafe
             assert!(rtlsdr_get_device_count()>0, "No device found");
             let mut dev: *mut rtlsdr_dev_t = std::ptr::null_mut();
@@ -91,7 +114,7 @@ impl RTL_SDR{
             let result = rtlsdr_close(self.dev);
             //TODO add some sorta free function for self.dev
             println!("result of close is ... {}", result);
-            
+
         }
     }
     pub fn set_center_freq(&mut self, freq: u32) -> () {
@@ -123,16 +146,34 @@ impl RTL_SDR{
     //so therefore a higher level function that calls read sync to read values
     //should double the number of points it puts on
     //
-    fn read_sync(&mut self, len: i32) -> (Vec<u8>, i32, i32) {
-        let mut buf = vec![0u8; len as usize];
+    //TODO bascially have every function specifically this one has errors as the return instead of
+    //how im doing it now.
+    fn read_sync(&mut self,block_size:i32,bytes_to_read: i32) -> (Vec<u8>, i32, i32) {
+        let mut buf = vec![0u8;block_size as usize];
+        let mut bytes_left = bytes_to_read;
+        let mut read_data = Vec::with_capacity(bytes_to_read as usize);
+        //TODO: setup sytem for short reads/writes. For now will assume bytes to read is a factor
+        //of block size
         let mut n_read: i32 = 0;
         //TODO: how the c code does read sync is they have a block size of min 512 blocks and
         //they have a seperate bytes to read function that gets that amount subtracted from it
         //every time they read in bytes. See RTL_SDR.c line 236 for details
-        unsafe{
-            let err = rtlsdr_read_sync(self.dev,buf.as_mut_ptr() as *mut c_void, len,&mut n_read as *mut c_int); 
-            (buf, n_read, err)
-        }
+        let mut err = -1;
+            while bytes_left>n_read {
+                unsafe{
+                    err = rtlsdr_read_sync(self.dev,buf.as_mut_ptr() as *mut c_void, block_size,&mut n_read as *mut c_int);
+                }
+                if err != 0{
+                    println!("error");
+                    return (buf, 0, err);
+                }
+                else {
+                   read_data.append(&mut buf.clone()); 
+                   bytes_left -= n_read;
+
+                }
+            } 
+            (read_data, n_read, err) 
     }
     //Documentation for C code says to run this function before any reads
     fn reset_buffer(&mut self) -> (){
@@ -155,7 +196,7 @@ fn open_device(index: u32) -> *mut rtlsdr_dev_t {
 
 //**Implementations of IQdata
 impl IQdata{
-    
+
 
     /*Line 282 in rtl_fm.c is how I think they make thier IQ data
      * it's really jank becuase it's in C so they do some B.S. magic
@@ -167,15 +208,15 @@ impl IQdata{
         assert!(size%2==0, "uneven number of samples how?");
         //let mut I = vec![0u8; (size/2) as usize];
         //let mut Q = vec![0u8; (size/2) as usize];
-        let mut I = vec![0u8];
-        let mut Q = vec![0u8];
+        let mut I = Vec::with_capacity((size/2)as usize);
+        let mut Q = Vec::with_capacity((size/2)as usize);
         for (num,val) in raw_data.iter().enumerate(){
              if num%2 == 0 {I.push(*val);}
              else {Q.push(*val);}
         }
         IQdata{
             in_phase:I,
-            quad:   Q} 
+            quad:   Q}
     }
     fn write(self,filename: String) -> i32{
         let mut f = OpenOptions::new().read(true)
@@ -184,7 +225,7 @@ impl IQdata{
                                         .append(false)
                                         .open(filename)
                                         .unwrap();
-        
+
 
 
         writeln!(f, "{:?}", self.in_phase);

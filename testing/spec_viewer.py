@@ -4,9 +4,11 @@ import scipy.signal as signal
 
 
 import matplotlib.pyplot as plt
-import os
-length = os.path.getsize('data.txt')
-print(length)
+data = open("data.txt", "r")
+
+for length, l in enumerate(data):
+    pass
+length += 1
 data = open("data.txt", "r")
 reader = data.readlines()
 data = np.zeros((int(length/2)), dtype = 'complex')
@@ -18,7 +20,6 @@ for i in range(int(length/2)):
     data[i] = data1[i] + 1j*data1[i*2]
 
 
-print (data.shape)
 
 
 f, t, spec1 = signal.spectrogram(data, fs=2.048e6)
@@ -26,7 +27,7 @@ print (spec1.shape)
 print (spec1)
 
 plt.figure()
-plt.title('fm spectrogram, 1024 samples')
+plt.title('fm spectrogram, Centered at 99.5 MHz, no bandwidth specified')
 plt.pcolormesh(t, np.fft.fftshift(f), np.fft.fftshift(spec1,axes=0))
 plt.xlabel('time')
 plt.ylabel('freq')
