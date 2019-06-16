@@ -72,13 +72,17 @@ extern "C" {
     fn rtlsdr_get_center_freq(dev: *mut rtlsdr_dev_t) ->c_int;
     fn rtlsdr_set_sample_rate(dev: *mut rtlsdr_dev_t, samp_rate:u32) -> c_int;
     fn rtlsdr_get_sample_rate(dev: *mut rtlsdr_dev_t) -> c_int;
+    fn rtlsdr_set_tuner_bandwidth(dev: *mut rtlsdr_dev_t, bw:u32) -> c_int;
     fn rtlsdr_read_sync(dev: *mut rtlsdr_dev_t,buf:*mut c_void,len: i32,n_read: *mut c_int) -> c_int;
     fn rtlsdr_reset_buffer(dev: *mut rtlsdr_dev_t) -> c_int;
+    fn rtlsdr_set_agc_mode(dev: *mut rtlsdr_dev_t, on:i32) -> c_int;
 }
 
 
 //rtlsdrlibrary overhead functions
+
 impl RTL_SDR{
+    //TODO have all functions return custom error type defined above
     pub fn new() ->Self{
         //TODO add indexing for multiple devices?
         unsafe{//not sure if all of this needs unsafe
@@ -121,6 +125,22 @@ impl RTL_SDR{
             sample_rate
         }
     }
+    pub fn set_bandwidth(&mut self, bw: u32) -> () {
+        unsafe{
+            let result = rtlsdr_set_tuner_bandwidth(self.dev, bw);
+            println!("result of setting bw is ... {}", result);
+        }
+    } 
+    //AGC===Automatic gain control. Basically the rtl has a couple of stages where it can have a
+    //variable gain, and what setting agc does is that their gain is automatically calculated by a
+    //power measurer in the following stage to maximize SNR(signal to noise ratio). I'm not sure if
+    //this enables AGC for the entire system or just on part, or if it is enabled by default
+    pub fn set_agc(&mut self, on: i32) ->() {
+        unsafe{
+            let result = rtlsdr_set_agc_mode(self.dev, on);
+            println!("result of setting AGC mode is ... {}", result);
+        }
+    }
     //So reading through the documentation of the c functions, I am fairly
     //certain that read_sync returns alternating IQ data values starting with I
     //so therefore a higher level function that calls read sync to read values
@@ -146,6 +166,9 @@ impl RTL_SDR{
                 if err != 0{
                     println!("error");
                     return (buf, err);
+                }
+                else if n_read!=block_size {
+                    println!("read error, samples lost!");
                 }
                 else {
                    read_data.append(&mut buf.clone()); 
