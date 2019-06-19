@@ -53,8 +53,6 @@ fn c_string_to_r_string(c: *const c_char) -> String{
 
 #[link(name = "rtlsdr")]
 extern "C" {
-//    fn rtl_sdr() -> bool;
-    //fn rtl_test(argc:c_int,argv:*const *const c_char) -> c_int;
     fn rtlsdr_get_device_count() -> u32;
     fn rtlsdr_get_device_name(index:u32) -> *const c_char;
     fn rtlsdr_open(dev: *mut *mut rtlsdr_dev_t, index:u32) -> c_int;
@@ -175,11 +173,11 @@ impl RTL_SDR{
                     err = rtlsdr_read_sync(self.dev,buf.as_mut_ptr() as *mut c_void, block_size,&mut n_read as *mut c_int);
                 }
                 if err != 0{
-                    println!("error");
+                    println!("read error, something went wrong");
                     return (buf, err);
                 }
                 else if n_read!=block_size {
-                    println!("read error, samples lost!");
+                    println!("read error, samples were lost!");
                 }
                 else {
                    read_data.append(&mut buf.clone()); 
@@ -203,20 +201,17 @@ impl RTL_SDR{
 }
 //**Implementations of IQdata
 impl IQdata{
-
     pub fn new(raw_data:Vec<u8>,size:i32 ) -> Self {
         assert!(size%2==0, "uneven number of samples how?");
-        //let mut I = vec![0u8; (size/2) as usize];
-        //let mut Q = vec![0u8; (size/2) as usize];
-        let mut I = Vec::with_capacity((size/2)as usize);
-        let mut Q = Vec::with_capacity((size/2)as usize);
+        let mut i = Vec::with_capacity((size/2)as usize);
+        let mut q = Vec::with_capacity((size/2)as usize);
         for (num,val) in raw_data.iter().enumerate(){
-             if num%2 == 0 {I.push(*val);}
-             else {Q.push(*val);}
+             if num%2 == 0 {i.push(*val);}
+             else {q.push(*val);}
         }
         IQdata{
-            in_phase:I,
-            quad:   Q}
+            in_phase:i,
+            quad:   q}
     }
     pub fn write(self,filename: String) -> i32{
         let out: Result<File, std::io::Error> = File::create(filename);
@@ -231,9 +226,7 @@ impl IQdata{
         for line in self.quad {
                     writeln!(buf, "{}", line);
         }
-        0
-        
-         
+        0 
     }
 }
 
