@@ -1,8 +1,9 @@
 extern crate libc;
 use libc::{c_int,c_char, c_void};
 use std::{str,ptr};
-use std::fs::{File, OpenOptions, remove_file};
-use std::io::{BufRead,BufReader, Write};
+use std::fs::{File};
+use std::io::{BufWriter, Write};
+use std::io;
 use std::ffi::CStr;
 use std::time;
 use std::thread::{sleep};
@@ -217,21 +218,22 @@ impl IQdata{
             in_phase:I,
             quad:   Q}
     }
-    //Think I can do this more effciently somehow. 
     pub fn write(self,filename: String) -> i32{
-        let mut f = OpenOptions::new().read(true)
-                                        .write(true)
-                                        .create(true)
-                                        .append(false)
-                                        .open(filename)
-                                        .unwrap();
-
-
-
-        writeln!(f, "{:?}", self.in_phase);
-        writeln!(f, "{:?}", self.quad);
+        let out: Result<File, std::io::Error> = File::create(filename);
+        let file = match out {
+            Ok(file) => file,
+            Err(..) => panic!("Couldn't output to file"),
+        }; 
+        let mut buf = BufWriter::new(file);
+        for line in self.in_phase {
+                    writeln!(buf, "{}", line);
+        }
+        for line in self.quad {
+                    writeln!(buf, "{}", line);
+        }
         0
-
+        
+         
     }
 }
 
