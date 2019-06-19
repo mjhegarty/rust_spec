@@ -8,13 +8,6 @@ use std::time;
 use std::thread::{sleep};
 //person who also did this did something like this
 enum rtlsdr_dev_t {}
-enum RtlWarn{
-    NoError,
-    Io,
-
-    Pipe,
-    Etc,
-}
 //Errors as listed in jpoirier's implementation
 pub enum Error {
     NoError,
@@ -52,9 +45,6 @@ pub struct RTL_SDR{
 
 
 
-fn c_int_to_warning(error: c_int) -> RtlWarn {
-    unimplemented!()
-}
 fn c_string_to_r_string(c: *const c_char) -> String{
     let c_str = unsafe { CStr::from_ptr(c) };
     String::from(str::from_utf8(c_str.to_bytes()).unwrap())
@@ -76,6 +66,7 @@ extern "C" {
     fn rtlsdr_read_sync(dev: *mut rtlsdr_dev_t,buf:*mut c_void,len: i32,n_read: *mut c_int) -> c_int;
     fn rtlsdr_reset_buffer(dev: *mut rtlsdr_dev_t) -> c_int;
     fn rtlsdr_set_agc_mode(dev: *mut rtlsdr_dev_t, on:i32) -> c_int;
+    fn rtlsdr_set_tuner_gain_mode(dev: *mut rtlsdr_dev_t, mode:i32) -> c_int;
 }
 
 
@@ -93,18 +84,22 @@ impl RTL_SDR{
             RTL_SDR{dev: dev as *mut rtlsdr_dev_t}
         }
     }
-    pub fn close_device(self) -> () {
+    pub fn close_device(self) -> Result<(), i32> {
         unsafe{
             let result = rtlsdr_close(self.dev);
             //TODO add some sorta free function for self.dev
             println!("result of close is ... {}", result);
+            if result >=0 { Ok(())}
+            else {Err(result)}
 
         }
     }
-    pub fn set_center_freq(&mut self, freq: u32) -> () {
+    pub fn set_center_freq(&mut self, freq: u32) -> Result<(),i32> {
         unsafe{
             let result = rtlsdr_set_center_freq(self.dev, freq);
             println! ("result of setting center frequency is ... {}", result);
+            if result >=0 { Ok(())}
+            else {Err(result)}
         }
     }
     pub fn get_center_freq(&self) -> u32 {
@@ -113,10 +108,12 @@ impl RTL_SDR{
             center_freq
         }
     }
-    pub fn set_sample_rate(&mut self, samp_rate: u32) -> () {
+    pub fn set_sample_rate(&mut self, samp_rate: u32) -> Result<(), i32> {
         unsafe{
             let result = rtlsdr_set_sample_rate(self.dev, samp_rate);
             println! ("result of setting sample rate is ... {}", result);
+            if result >=0 { Ok(())}
+            else {Err(result)}
         }
     }
     pub fn get_sample_rate(&self) -> u32 {
@@ -125,20 +122,35 @@ impl RTL_SDR{
             sample_rate
         }
     }
-    pub fn set_bandwidth(&mut self, bw: u32) -> () {
+    pub fn set_bandwidth(&mut self, bw: u32) -> Result<(), i32> {
         unsafe{
             let result = rtlsdr_set_tuner_bandwidth(self.dev, bw);
             println!("result of setting bw is ... {}", result);
+            if result >=0 { Ok(())}
+            else {Err(result)}
         }
     } 
     //AGC===Automatic gain control. Basically the rtl has a couple of stages where it can have a
     //variable gain, and what setting agc does is that their gain is automatically calculated by a
     //power measurer in the following stage to maximize SNR(signal to noise ratio). I'm not sure if
     //this enables AGC for the entire system or just on part, or if it is enabled by default
-    pub fn set_agc(&mut self, on: i32) ->() {
+    pub fn set_agc(&mut self, on: i32) -> Result<(), i32> {
         unsafe{
             let result = rtlsdr_set_agc_mode(self.dev, on);
             println!("result of setting AGC mode is ... {}", result);
+            if result >=0 { Ok(())}
+            else {Err(result)}
+        }
+    }
+
+    //Think 0 tuner gain is using AGC. I'm gonna set it to zero whenever
+    //I use AGC just to be safe.
+    pub fn set_tuner_gain_mode(&mut self, mode:i32) -> Result<(), i32> {
+        unsafe{
+            let result = rtlsdr_set_tuner_gain_mode(self.dev, mode);
+            println!("result of setting tuner gain mode is ... {}", result);
+            if result >=0 { Ok(())}
+            else {Err(result)}
         }
     }
     //So reading through the documentation of the c functions, I am fairly
@@ -146,8 +158,6 @@ impl RTL_SDR{
     //so therefore a higher level function that calls read sync to read values
     //should double the number of points it puts on
     //
-    //TODO bascially have every function specifically this one has errors as the return instead of
-    //how im doing it now.
     pub fn read_sync(&mut self,block_size:i32,bytes_to_read: i32) -> (Vec<u8>, i32) {
         let mut buf = vec![0u8;block_size as usize];
         let mut bytes_left = bytes_to_read;
@@ -179,34 +189,20 @@ impl RTL_SDR{
             (read_data, err) 
     }
     //Documentation for C code says to run this function before any reads
-    pub fn reset_buffer(&mut self) -> (){
+    pub fn reset_buffer(&mut self) -> Result<(), i32>{
         unsafe{
             let result = rtlsdr_reset_buffer(self.dev);
             println!("The result of resetting buffer is ... {}", result);
+            if result >=0 { Ok(())}
+            else {Err(result)}
         }
 
     }
 
 }
-fn open_device(index: u32) -> *mut rtlsdr_dev_t {
-    unsafe{
-        let mut dev: *mut rtlsdr_dev_t = std::ptr::null_mut();
-        let result = rtlsdr_open(&mut dev as *mut *mut rtlsdr_dev_t, index);
-        println! ("result of open is ... {}", result);
-        dev as *mut rtlsdr_dev_t
-    }
-}
-
 //**Implementations of IQdata
 impl IQdata{
 
-
-    /*Line 282 in rtl_fm.c is how I think they make thier IQ data
-     * it's really jank becuase it's in C so they do some B.S. magic
-     * instead of just spelling out what they do but I think it has something to do with how every
-     * value is 90 degrees away from each other
-     *
-     */
     pub fn new(raw_data:Vec<u8>,size:i32 ) -> Self {
         assert!(size%2==0, "uneven number of samples how?");
         //let mut I = vec![0u8; (size/2) as usize];
@@ -221,6 +217,7 @@ impl IQdata{
             in_phase:I,
             quad:   Q}
     }
+    //Think I can do this more effciently somehow. 
     pub fn write(self,filename: String) -> i32{
         let mut f = OpenOptions::new().read(true)
                                         .write(true)
