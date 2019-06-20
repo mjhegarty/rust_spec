@@ -66,6 +66,8 @@ extern "C" {
     fn rtlsdr_reset_buffer(dev: *mut rtlsdr_dev_t) -> c_int;
     fn rtlsdr_set_agc_mode(dev: *mut rtlsdr_dev_t, on:i32) -> c_int;
     fn rtlsdr_set_tuner_gain_mode(dev: *mut rtlsdr_dev_t, mode:i32) -> c_int;
+    fn rtlsdr_set_tuner_gain(dev: *mut rtlsdr_dev_t, gain: i32) -> c_int;
+    fn rtlsdr_get_tuner_gains(dev: *mut rtlsdr_dev_t,gains: *mut c_int)->c_int;
 }
 
 
@@ -141,6 +143,24 @@ impl RTL_SDR{
             else {Err(result)}
         }
     }
+    pub fn get_tuner_gains(&self) ->Result<Vec<i32>, i32> {
+        let mut gains = vec![0i32;30 as usize];//Highest tuner gains amount is like 28
+ 
+        unsafe {
+            let result = rtlsdr_get_tuner_gains(self.dev, gains.as_mut_ptr() as *mut c_int);
+            if result >=0 { Ok(gains)}
+            else {Err(result)}
+        }
+
+    }
+    //Sets tuner gain to one of the values from get_tuner_gains
+    pub fn set_tuner_gain(&mut self, gain: i32) ->Result <(), i32> {
+        unsafe{
+            let result = rtlsdr_set_tuner_gain(self.dev,gain); 
+            if result >=0 {Ok(())}
+            else{Err(result)}
+        }
+    }
 
     //Think 0 tuner gain is using AGC. I'm gonna set it to zero whenever
     //I use AGC just to be safe.
@@ -168,7 +188,7 @@ impl RTL_SDR{
         //they have a seperate bytes to read function that gets that amount subtracted from it
         //every time they read in bytes. See RTL_SDR.c line 236 for details
         let mut err = -1;
-            while bytes_left>n_read {
+            while bytes_left>=n_read {
                 unsafe{
                     err = rtlsdr_read_sync(self.dev,buf.as_mut_ptr() as *mut c_void, block_size,&mut n_read as *mut c_int);
                 }
@@ -176,7 +196,7 @@ impl RTL_SDR{
                     println!("read error, something went wrong");
                     return (buf, err);
                 }
-                else if n_read!=block_size {
+                else if n_read != block_size {
                     println!("read error, samples were lost!");
                 }
                 else {
