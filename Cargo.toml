@@ -9,3 +9,5 @@ links = "rtlsdr"
 
 [dependencies]
 libc = "0.2"
+num = "0.2"
+enum_primitive="0.1.1"
