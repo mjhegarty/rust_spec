@@ -2,9 +2,6 @@ extern crate num;
 use num::FromPrimitive;
 use libc::{c_int,c_char, c_void};
 use std::{str,ptr};
-use std::fs::{File};
-use std::io::{BufWriter, Write};
-use std::io;
 use std::ffi::CStr;
 use std::time;
 use std::thread::{sleep};
@@ -33,11 +30,6 @@ pub enum Error {
     StringDescriptorTooLong=-16,
     Unknown=-17,
 }
-}
-//Struct to store IQ data in. Would be interesting to see if
-pub struct IQdata{
-    in_phase: Vec<u8>,
-    quad: Vec<u8>,
 }
 pub struct RTL_SDR{
    dev: *mut rtlsdr_dev_t,
@@ -222,38 +214,8 @@ impl RTL_SDR{
         }
 
     }
+}
 
-}
-//**Implementations of IQdata
-impl IQdata{
-    pub fn new(raw_data:Vec<u8>,size:i32 ) -> Self {
-        assert!(size%2==0, "uneven number of samples how?");
-        let mut i = Vec::with_capacity((size/2)as usize);
-        let mut q = Vec::with_capacity((size/2)as usize);
-        for (num,val) in raw_data.iter().enumerate(){
-             if num%2 == 0 {i.push(*val);}
-             else {q.push(*val);}
-        }
-        IQdata{
-            in_phase:i,
-            quad:   q}
-    }
-    pub fn write(self,filename: String) -> i32{
-        let out: Result<File, std::io::Error> = File::create(filename);
-        let file = match out {
-            Ok(file) => file,
-            Err(..) => panic!("Couldn't output to file"),
-        }; 
-        let mut buf = BufWriter::new(file);
-        for line in self.in_phase {
-                    writeln!(buf, "{}", line);
-        }
-        for line in self.quad {
-                    writeln!(buf, "{}", line);
-        }
-        0 
-    }
-}
 
 
 

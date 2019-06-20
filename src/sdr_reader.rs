@@ -1,5 +1,5 @@
-use super::rtl_sdr::{RTL_SDR, IQdata, Error};
-
+use super::rtl_sdr::{RTL_SDR, Error};
+use super::IQ_data::IQdata;
 pub fn sync_read_samples(num_samples:i32,center_frequency:u32, sampling_rate:u32,) {
     let mut dev = RTL_SDR::new();
     dev.reset_buffer();
