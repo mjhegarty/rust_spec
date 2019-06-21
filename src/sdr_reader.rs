@@ -16,10 +16,12 @@ pub fn sync_read_samples(num_samples:i32,center_frequency:u32, sampling_rate:u32
     let (buf, err) = dev.read_sync(1024,num_samples*2);//TODO find optimal block size
     assert!(err==Error::NoError, "error with reading samples"); //TODO have assert messages be jp's error messages
     dev.close_device();
-    let data = IQdata::new(buf,num_samples*2);
-    data.write("test.txt".to_string());
-}
-
+    let mut data = IQdata::new(buf,num_samples*2);
+    let mag1 = data.get_mag();
+    let mag2 = data.get_mag_quick();
+    println!("mag1 has the values {:?}", mag1);
+    println!("mag2 has the values {:?}", mag2); data.write("test.txt".to_string()); 
+} 
 pub fn sync_read_samples_max_gain(num_samples:i32,center_frequency:u32, sampling_rate:u32,) {
     let mut dev = RTL_SDR::new();
     dev.reset_buffer();
@@ -46,7 +48,7 @@ pub fn sync_read_samples_max_gain(num_samples:i32,center_frequency:u32, sampling
 fn max_gain(gains: &Vec<i32>) -> i32{
     let mut max = 0;
     for i in gains {
-        if *i>max { max = *i};
+        if *i>max {max = *i};
     }
     max
 }
