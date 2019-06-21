@@ -3,6 +3,7 @@ use std::io::{BufWriter, Write};
 use std::cmp::{max, min};
 
 //Struct to store IQ data in. Would be interesting to see if
+#[derive(Debug)]
 pub struct IQdata{
     in_phase: Vec<i8>,
     quad: Vec<i8>,
@@ -59,7 +60,7 @@ impl IQdata{
                     writeln!(buf, "{}", line);
         }
         0
-    }
+    }    
 }
 fn larger_smaller_abs(a:&i8,b: &i8) -> (u16, u16){
     let a1 = (*a).abs() as u16;
