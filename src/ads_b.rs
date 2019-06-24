@@ -60,7 +60,7 @@ pub fn detect_preamble(mag_data: Vec<u32>) -> i32 {
         if is_preamble(&mag_data[i..(i+15)]){
            // data_processing(&mag_data[i..(i+119)]);
             count+=1;
-            i += 120;
+            i += 240;
         }
         else{
             i += 1;
