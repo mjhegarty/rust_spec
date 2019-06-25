@@ -9,7 +9,7 @@ fn get_iq_data(n_samples:i32) ->IQdata {
     iq_data
 }
 
-fn get_mag_data(raw_data:IQdata) -> Vec<u32> {
+fn get_mag(raw_data:IQdata) -> Vec<u32> {
     raw_data.get_mag()
 }
 //transform differntial encoded data into bytes or bits
@@ -23,49 +23,77 @@ fn pack_data(raw_data: Vec<u32>) -> Vec<u32> {
 pub fn simple_print_test(){
     let data = get_iq_data(1024);
     println!("raw iq_data is {:?}", data);
-    let mag = get_mag_data(data);
+    let mag = get_mag(data);
     println!("mag iq_data is {:?}", mag);
 }
 pub fn simple_preamble_test(){
-    let data = get_iq_data(1024*100);
-    let mag = get_mag_data(data);
+    let data = get_iq_data(1024*10000);
+    let mag = get_mag(data);
     println!("Number of preambles detected in sequence is {}", detect_preamble(mag)); 
+}
+//Think I'm going to have this function change the differerntial encoding to 1s and 0s
+//Not sure if I want it to make it into bytes or not tbd
+pub fn wave_to_data(mag: &[u32]) -> u32{
+    unimplemented!()
+
 }
 //data processing function will change to take data, not
 //just reference it
-pub fn data_processing(mag_data: &[u32]) -> u32{
+pub fn data_processing(data: &[u32]) -> u32{
     unimplemented!()
 }
-pub fn is_preamble(mag_data: &[u32]) -> bool
+//This function is going to check for the crc
+//somehow
+pub fn check_crc(data: &[u32]) -> bool{
+    unimplemented!()
+
+}
+pub fn is_preamble(mag: &[u32]) -> bool
 {
     //this will do for now want it to look cooler though
     //check that impluses are above half
-    if mag_data[0] < 128 || mag_data[2] <128 || mag_data[7] <128 || mag_data[9]<128{
+    //So it turns out I can't acatually check if they are above half b/c thats some arbitrary
+    //number. I really need to check the relationship between bits
+    //mag[0] mag[2] mag[7] mag[9]
+    ////For now I just copied what other people did, but i want to think of a more effiecient way
+    // test the relationship between these bits
+    if mag[0] < mag[1] ||mag[0] < mag[3] || mag[0]<mag[4] || mag[0] < mag[5]
+    {
         return false;
     }
-    if mag_data[1] > 128 || mag_data[3] >128 || mag_data[4] > 128 || mag_data[5] > 128 || mag_data[6] > 128 || mag_data[8] > 128 {
+    if mag[2] < mag[1] || mag[2] < mag[3] || mag[2] < mag[5] {
+        return false;    
+    }
+    if mag[7] < mag[6] || mag[7] < mag[5] || mag[7] < mag[8] {
+        return false;    
+    }
+    if mag[9] < mag[6] || mag[9] < mag[10] || mag[9] < mag[8] {
+        return false;    
+    }
+    let high = (mag[0] + mag[2] + mag[7] + mag[9])/6;
+    if mag[4] >= high || mag[5] >= high {
         return false;
     }
-    if mag_data[10] > 90 || mag_data[11] > 90 || mag_data[12] > 90 || mag_data[13] > 90 || mag_data[14] > 90 || mag_data[15] > 90 {
+    if mag[11] >= high || mag[12] >= high || mag[13] >=high || mag[14] >= high {
         return false;
     }
     else {
         return true;
     }
 }
-pub fn detect_preamble(mag_data: Vec<u32>) -> i32 {
+pub fn detect_preamble(mag: Vec<u32>) -> i32 {
     let mut count = 0;
     let mut i = 0;
     loop{        
-        if is_preamble(&mag_data[i..(i+15)]){
-           // data_processing(&mag_data[i..(i+119)]);
+        if i>=(mag.len()-240){ break;}
+        if is_preamble(&mag[i..(i+15)]){
+           // data_processing(&mag[i..(i+119)]);
             count+=1;
             i += 240;
         }
         else{
             i += 1;
         }
-        if i>=mag_data.len(){ break;}
     }
     count //Return a count of how many preambles are found for now
 }
