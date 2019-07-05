@@ -8,6 +8,7 @@ pub fn sync_read_samples(num_samples:i32,center_frequency:u32, sampling_rate:u32
     dev.set_tuner_gain_mode(0);
     dev.set_agc(1);
     dev.set_center_freq(center_frequency);
+    dev.set_bandwidth(300_000);
     assert!(dev.get_center_freq()==center_frequency, "failure in setting frequency");
     //dev.set_sample_rate(2048000);
     dev.set_sample_rate(sampling_rate);
@@ -19,10 +20,7 @@ pub fn sync_read_samples(num_samples:i32,center_frequency:u32, sampling_rate:u32
     assert!(err==Error::NoError, "error with reading samples"); //TODO have assert messages be jp's error messages
     dev.close_device();
     let mut data = IQdata::new(buf,num_samples*2);
-    let mag1 = data.get_mag();
-    let mag2 = data.get_mag_quick();
-    println!("mag1 has the values {:?}", mag1);
-    println!("mag2 has the values {:?}", mag2); data.write("test.txt".to_string()); 
+    data.write("unformatted.txt".to_string());
 } 
 pub fn sync_read_samples_max_gain(num_samples:i32,center_frequency:u32, sampling_rate:u32,) {
     let mut dev = RTL_SDR::new();

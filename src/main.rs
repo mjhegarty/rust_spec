@@ -8,6 +8,7 @@ use ads_b::{simple_print_test, simple_preamble_test};
 
 fn main() {
     println!("running simple test of ads_b");
+//    sync_read_samples(1024*2000, 99_500_000, 2_048_000)
     simple_preamble_test(); 
 //    simple_print_test();
 }

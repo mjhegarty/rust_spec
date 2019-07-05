@@ -18,9 +18,8 @@ data = open(filename, "r")
 reader = data.readlines()
 data = np.zeros((int(length/2)), dtype = 'complex')
 data1 = np.zeros((int(length)))
-for i, x in enumerate(reader):
-    data1[i]= float((float(x)/127.5)-1)
-
+for i,x in enumerate(reader):
+    data1[i] = x
 for i in range(int(length/2)):
     data[i] = data1[i] + 1j*data1[i+int(length/2)]
 

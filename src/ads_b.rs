@@ -17,7 +17,7 @@ fn get_mag(raw_data:IQdata) -> Vec<u32> {
 //its tricky because the data section is going to be in groups
 //of 6, so it might be easier to just leave it as bits.
 //dump1090 uses bytes so it probably is the better option
-fn pack_data(raw_data: Vec<u32>) -> Vec<u32> {
+fn pack_data(raw_data: Vec<u32>) -> Vec<u32> {        
     unimplemented!()
 }
 pub fn simple_print_test(){
@@ -33,9 +33,18 @@ pub fn simple_preamble_test(){
 }
 //Think I'm going to have this function change the differerntial encoding to 1s and 0s
 //Not sure if I want it to make it into bytes or not tbd
-pub fn wave_to_data(mag: &[u32]) -> u32{
-    unimplemented!()
-
+pub fn wave_to_data(mag: &[u32]) -> Vec<u8>{
+    let mut data: Vec<u8> = Vec::with_capacity(mag.len()/2 as usize);
+    let mut iter = mag.iter().peekable();
+    while iter.peek()!=None{
+        if iter.next() >= iter.next(){
+            data.push(1);
+        }
+        else {
+            data.push(0);
+        }
+    }
+    data
 }
 //data processing function will change to take data, not
 //just reference it
@@ -45,6 +54,7 @@ pub fn data_processing(data: &[u32]) -> u32{
 //This function is going to check for the crc
 //somehow
 pub fn check_crc(data: &[u32]) -> bool{
+
     unimplemented!()
 
 }
@@ -87,7 +97,7 @@ pub fn detect_preamble(mag: Vec<u32>) -> i32 {
     loop{        
         if i>=(mag.len()-240){ break;}
         if is_preamble(&mag[i..(i+15)]){
-           // data_processing(&mag[i..(i+119)]);
+            println!("differential data read: {:?}",wave_to_data(&mag[i+16.. (i+16+224)]));
             count+=1;
             i += 240;
         }
