@@ -46,11 +46,10 @@ fn mod2_div<'a>(divisor: &Vec<u8>, buffer:&mut VecDeque<u8>, carrydown_bit:&u8){
     }
 }
 pub fn crc_check(data_bits : &Vec<u8>) -> bool{
-    let gen = vec![1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,0,0,0,0,1,0,0,1];
-    //let i =data_bits.clone().iter().position(|&x| x>=1).unwrap();//TODO make this return false rather than panic
+    //NOTE so this is a 24 bit crc, so the gen is really 25 bits, but I only want the 24 least significant
+    //because the 1st one is implied in my algorithim
+    let gen = vec![1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,0,0,0,0,1,0,0,1];   
     let mut buffer: VecDeque<u8> = VecDeque::from(vec![0; 24]);
-    //let init_slice = &data_bits[i..(i+22)];
-    //data_bits.iter().map(|x| mod2_div(&gen,&mut buffer,x)).collect();
     for x in data_bits {
         mod2_div(&gen,&mut buffer,x);
     }
