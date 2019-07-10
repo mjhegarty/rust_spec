@@ -1,6 +1,11 @@
 use super::sdr_reader::{sync_return_samples_max_gain};
 use super::IQ_data::{IQdata};
 use itertools::Itertools;
+use std::collections::VecDeque;
+use std::iter::FromIterator;
+
+
+
 
 fn get_iq_data(n_samples:i32) ->IQdata {
     //For ADS-B we use the 1050 MHz frequency with a sampling rate of 2MHz
@@ -31,6 +36,27 @@ pub fn simple_preamble_test(){
     let mag = get_mag(data);
     println!("Number of preambles detected in sequence is {}", detect_preamble(mag)); 
 }
+fn mod2_div<'a>(divisor: &Vec<u8>, buffer:&mut VecDeque<u8>, carrydown_bit:&u8){
+    buffer.push_back(*carrydown_bit);
+    if buffer.pop_front().unwrap()==1{
+        for it in divisor.iter().zip(buffer.iter_mut()){
+            let (a,b) = it;
+            *b = (*b)^(*a);
+        }
+    }
+}
+pub fn crc_check(data_bits : &Vec<u8>) -> bool{
+    let gen = vec![1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,0,0,0,0,1,0,0,1];
+    //let i =data_bits.clone().iter().position(|&x| x>=1).unwrap();//TODO make this return false rather than panic
+    let mut buffer: VecDeque<u8> = VecDeque::from(vec![0; 24]);
+    //let init_slice = &data_bits[i..(i+22)];
+    //data_bits.iter().map(|x| mod2_div(&gen,&mut buffer,x)).collect();
+    for x in data_bits {
+        mod2_div(&gen,&mut buffer,x);
+    }
+    if buffer.contains(&1){false}
+    else {true}
+}
 //Think I'm going to have this function change the differerntial encoding to 1s and 0s
 //Not sure if I want it to make it into bytes or not tbd
 pub fn wave_to_data(mag: &[u32]) -> Vec<u8>{
@@ -50,13 +76,6 @@ pub fn wave_to_data(mag: &[u32]) -> Vec<u8>{
 //just reference it
 pub fn data_processing(data: &[u32]) -> u32{
     unimplemented!()
-}
-//This function is going to check for the crc
-//somehow
-pub fn check_crc(data: &[u32]) -> bool{
-
-    unimplemented!()
-
 }
 pub fn is_preamble(mag: &[u32]) -> bool
 {
