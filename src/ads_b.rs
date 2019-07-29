@@ -25,6 +25,15 @@ fn get_mag(raw_data:IQdata) -> Vec<u32> {
 fn pack_data(raw_data: Vec<u32>) -> Vec<u32> {        
     unimplemented!()
 }
+//Hard coded in test of crc checker to make sure that's not the problem
+pub fn simple_crc_test() -> bool {
+    let first = crc_check(&vec![1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,0,1,1,1,0,1,1,0,0,1,0,1,0,0,1,1,0,0]); 
+    let second = crc_check(&vec![1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,0,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0,1,0,1,0,0,1,0,0,1,0,1,1,1,1,0,0,1,0,1]);
+    let third = crc_check(&vec![1,1,1,1,1,1,1,1,1,1,0,1,1,0,1,1,0,1,1,0,1,1,1,0,1,1,0,1,1,0,1,1,0,1,0,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,0,1,1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,0,1,0,1,0,1,0,0,1,0,1,0,0,1,1,0,1,0]);
+    first && second && third
+
+
+}
 pub fn simple_print_test(){
     let data = get_iq_data(1024);
     println!("raw iq_data is {:?}", data);
@@ -32,11 +41,12 @@ pub fn simple_print_test(){
     println!("mag iq_data is {:?}", mag);
 }
 pub fn simple_preamble_test(){
-    let data = get_iq_data(1024*10000);
+    let data = get_iq_data(1024*100000);
     let mag = get_mag(data);
-    println!("Number of preambles detected in sequence is {}", detect_preamble(mag)); 
+    let (detections,matches) = detect_preamble(mag);
+    println!("Number of preambles detected in sequence is {}, {} matches", detections,matches); 
 }
-fn mod2_div<'a>(divisor: &Vec<u8>, buffer:&mut VecDeque<u8>, carrydown_bit:&u8){
+fn mod2_div(divisor: &Vec<u8>, buffer:&mut VecDeque<u8>, carrydown_bit:&u8){
     buffer.push_back(*carrydown_bit);
     if buffer.pop_front().unwrap()==1{
         for it in divisor.iter().zip(buffer.iter_mut()){
@@ -50,6 +60,7 @@ pub fn crc_check(data_bits : &Vec<u8>) -> bool{
     //because the 1st one is implied in my algorithim
     let gen = vec![1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,0,0,0,0,1,0,0,1];   
     let mut buffer: VecDeque<u8> = VecDeque::from(vec![0; 24]);
+    assert!(data_bits.len() == (112), "data packet not correct size");
     for x in data_bits {
         mod2_div(&gen,&mut buffer,x);
     }
@@ -109,13 +120,22 @@ pub fn is_preamble(mag: &[u32]) -> bool
         return true;
     }
 }
-pub fn detect_preamble(mag: Vec<u32>) -> i32 {
+pub fn detect_preamble(mag: Vec<u32>) -> (i32, i32) {
     let mut count = 0;
+    let mut passed_crc = 0;
     let mut i = 0;
     loop{        
         if i>=(mag.len()-240){ break;}
         if is_preamble(&mag[i..(i+15)]){
-            println!("differential data read: {:?}",wave_to_data(&mag[i+16.. (i+16+224)]));
+            let data = wave_to_data(&mag[i+16..(i+16+223)]);
+            println!("differential data read: {:?}",data);
+            if crc_check(&data){
+                println!("CRC check passed!");
+                passed_crc+=1;
+            }
+            else{
+                println!("crc failed...");
+            }
             count+=1;
             i += 240;
         }
@@ -123,7 +143,6 @@ pub fn detect_preamble(mag: Vec<u32>) -> i32 {
             i += 1;
         }
     }
-    count //Return a count of how many preambles are found for now
+    (count,passed_crc) //Return a count of how many preambles are found for now
 }
 
-//NOTE: Iterators seem like a really really good idea for checksum stuff.
