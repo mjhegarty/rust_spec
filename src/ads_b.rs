@@ -70,6 +70,7 @@ pub fn crc_check(data_bits : &Vec<u8>) -> bool{
 //Think I'm going to have this function change the differerntial encoding to 1s and 0s
 //Not sure if I want it to make it into bytes or not tbd
 pub fn wave_to_data(mag: &[u32]) -> Vec<u8>{
+    assert!(mag.len()==224, "Wave wrong amount of data");
     let mut data: Vec<u8> = Vec::with_capacity(mag.len()/2 as usize);
     let mut iter = mag.iter().peekable();
     while iter.peek()!=None{
@@ -89,6 +90,7 @@ pub fn data_processing(data: &[u32]) -> u32{
 }
 pub fn is_preamble(mag: &[u32]) -> bool
 {
+    assert!((mag.len())==16, "Wrong length preamble");
     //this will do for now want it to look cooler though
     //check that impluses are above half
     //So it turns out I can't acatually check if they are above half b/c thats some arbitrary
@@ -126,8 +128,8 @@ pub fn detect_preamble(mag: Vec<u32>) -> (i32, i32) {
     let mut i = 0;
     loop{        
         if i>=(mag.len()-240){ break;}
-        if is_preamble(&mag[i..(i+15)]){
-            let data = wave_to_data(&mag[i+16..(i+16+223)]);
+        if is_preamble(&mag[i..(i+16)]){
+            let data = wave_to_data(&mag[i+17..(i+17+224)]);
             println!("differential data read: {:?}",data);
             if crc_check(&data){
                 println!("CRC check passed!");
