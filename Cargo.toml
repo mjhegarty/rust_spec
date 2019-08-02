@@ -3,6 +3,7 @@ name = "rust_spec"
 version = "0.1.0"
 authors = ["mjhegarty <mhegarty@gwu.edu>"]
 edition = "2018"
+build = "build.rs"
 
 
 [dependencies]
@@ -10,4 +11,3 @@ libc = "0.2"
 num = "0.2"
 enum_primitive="0.1.1"
 itertools="0.8.0"
-librtlsdr-sys= {path = "../librtlsdr-sys"}
