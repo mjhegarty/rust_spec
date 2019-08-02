@@ -1,4 +1,5 @@
 extern crate num;
+extern crate librtlsdr_sys;
 use num::FromPrimitive;
 use libc::{c_int,c_char, c_void};
 use std::{str,ptr};
