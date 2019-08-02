@@ -41,7 +41,7 @@ pub fn simple_print_test(){
     println!("mag iq_data is {:?}", mag);
 }
 pub fn simple_preamble_test(){
-    let data = get_iq_data(1024*100000);
+    let data = get_iq_data(1024*10000);
     let mag = get_mag(data);
     let (detections,matches) = detect_preamble(mag);
     println!("Number of preambles detected in sequence is {}, {} matches", detections,matches); 
@@ -128,18 +128,19 @@ pub fn detect_preamble(mag: Vec<u32>) -> (i32, i32) {
     let mut i = 0;
     loop{        
         if i>=(mag.len()-240){ break;}
-        if is_preamble(&mag[i..(i+16)]){
-            let data = wave_to_data(&mag[i+17..(i+17+224)]);
+        if is_preamble(&mag[i..(i+16)]){//So rust ranges are inclusive, exclusive
+            let data = wave_to_data(&mag[i+16..(i+16+224)]);
             println!("differential data read: {:?}",data);
             if crc_check(&data){
                 println!("CRC check passed!");
                 passed_crc+=1;
+                i +=240;
             }
             else{
                 println!("crc failed...");
+                i+=1
             }
             count+=1;
-            i += 240;
         }
         else{
             i += 1;
