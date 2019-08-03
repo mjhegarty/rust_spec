@@ -1,4 +1,4 @@
-use super::sdr_reader::{sync_return_samples_max_gain};
+use super::sdr_reader::{sync_return_samples_max_gain,sync_return_samples};
 use super::IQ_data::{IQdata};
 use itertools::Itertools;
 use std::collections::VecDeque;
@@ -26,14 +26,6 @@ fn pack_data(raw_data: Vec<u32>) -> Vec<u32> {
     unimplemented!()
 }
 //Hard coded in test of crc checker to make sure that's not the problem
-pub fn simple_crc_test() -> bool {
-    let first = crc_check(&vec![1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,0,1,1,1,0,1,1,0,0,1,0,1,0,0,1,1,0,0]); 
-    let second = crc_check(&vec![1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,0,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0,1,0,1,0,0,1,0,0,1,0,1,1,1,1,0,0,1,0,1]);
-    let third = crc_check(&vec![1,1,1,1,1,1,1,1,1,1,0,1,1,0,1,1,0,1,1,0,1,1,1,0,1,1,0,1,1,0,1,1,0,1,0,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,0,1,1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,0,1,0,1,0,1,0,0,1,0,1,0,0,1,1,0,1,0]);
-    first && second && third
-
-
-}
 pub fn simple_print_test(){
     let data = get_iq_data(1024);
     println!("raw iq_data is {:?}", data);
@@ -41,10 +33,10 @@ pub fn simple_print_test(){
     println!("mag iq_data is {:?}", mag);
 }
 pub fn simple_preamble_test(){
-    let data = get_iq_data(1024*10000);
-    let mag = get_mag(data);
-    let (detections,matches) = detect_preamble(mag);
-    println!("Number of preambles detected in sequence is {}, {} matches", detections,matches); 
+        let data = get_iq_data(1024*100000);
+        let mag = get_mag(data);
+        let (detections,matches) = detect_preamble(mag);
+        println!("Number of preambles detected in sequence is {}, {} matches", detections,matches); 
 }
 fn mod2_div(divisor: &Vec<u8>, buffer:&mut VecDeque<u8>, carrydown_bit:&u8){
     buffer.push_back(*carrydown_bit);
@@ -67,17 +59,70 @@ pub fn crc_check(data_bits : &Vec<u8>) -> bool{
     if buffer.contains(&1){false}
     else {true}
 }
-//Think I'm going to have this function change the differerntial encoding to 1s and 0s
+//Think I'm going to have this function change the PPM encoding to 1s and 0s
 //Not sure if I want it to make it into bytes or not tbd
 pub fn wave_to_data(mag: &[u32]) -> Vec<u8>{
     assert!(mag.len()==224, "Wave wrong amount of data");
     let mut data: Vec<u8> = Vec::with_capacity(mag.len()/2 as usize);
     let mut iter = mag.iter().peekable();
+    let mut first = 0;
+    let mut second = 0;
+    let mut last = 1;
     while iter.peek()!=None{
-        if iter.next() >= iter.next(){
+        first = *iter.next().unwrap();
+        second = *iter.next().unwrap();
+        //println!("first and second are {:?} and {:?}", first, second);
+        if first==second{
+            data.push(last);
+        }
+        else if first> second{
+            last = 1;
             data.push(1);
         }
         else {
+            last = 0;
+            data.push(0);
+        }
+    }
+    data
+}
+//wave to data but with a teeny bit of phase correction
+pub fn wave_to_data_PC(mag: &[u32]) -> Vec<u8>{
+    assert!(mag.len()==224, "Wave wrong amount of data");
+    let mut data: Vec<u8> = Vec::with_capacity(mag.len()/2 as usize);
+    let mut iter = mag.iter().peekable();
+    let mut first = 0;
+    let mut second = 0;
+    let mut last = 2;
+    while iter.peek()!=None{
+        if (last ==0){
+            first = (*iter.next().unwrap()*4)/5;
+        }
+        else if (last ==1){
+            first = (*iter.next().unwrap()*5)/4;
+
+        }
+        else if (last ==2){
+            first =*iter.next().unwrap();
+
+        }
+        second = *iter.next().unwrap();
+        //println!("first and second are {:?} and {:?}", first, second);
+        if first==second{
+            if last == 2 {
+                data.push(1);
+                last =1;
+            }
+            else{
+                data.push(last);
+            }
+        }
+        else if first> second{
+            last = 1;
+            data.push(1);
+        }
+        else {
+            last = 0;
             data.push(0);
         }
     }
@@ -126,19 +171,28 @@ pub fn detect_preamble(mag: Vec<u32>) -> (i32, i32) {
     let mut count = 0;
     let mut passed_crc = 0;
     let mut i = 0;
+    let mut data;
     loop{        
-        if i>=(mag.len()-240){ break;}
+        if i>(mag.len()-240){ break;}
         if is_preamble(&mag[i..(i+16)]){//So rust ranges are inclusive, exclusive
-            let data = wave_to_data(&mag[i+16..(i+16+224)]);
-            println!("differential data read: {:?}",data);
+            data = wave_to_data(&mag[i+16..(i+16+224)]);
+            //println!("differential data read: {:?}",data);
             if crc_check(&data){
                 println!("CRC check passed!");
                 passed_crc+=1;
                 i +=240;
             }
             else{
-                println!("crc failed...");
-                i+=1
+             //   println!("crc failed...");
+                data = wave_to_data_PC(&mag[i+16 ..(i+16+224)]);
+                if crc_check(&data){
+                    println!("CRC check passed in phase correction!");
+                    passed_crc+=1;
+                    i +=240;
+                }
+                else{
+                    i+=1;
+                }
             }
             count+=1;
         }
@@ -147,5 +201,46 @@ pub fn detect_preamble(mag: Vec<u32>) -> (i32, i32) {
         }
     }
     (count,passed_crc) //Return a count of how many preambles are found for now
+}
+
+
+
+
+
+
+
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+    #[test]
+    fn crc_test(){
+        assert!(crc_check(&vec![1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,0,1,1,1,0,1,1,0,0,1,0,1,0,0,1,1,0,0]), "crc check failed"); 
+        assert!(crc_check(&vec![1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,0,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0,1,0,1,0,0,1,0,0,1,0,1,1,1,1,0,0,1,0,1]), "crc check failed");
+        assert!(crc_check(&vec![1,1,1,1,1,1,1,1,1,1,0,1,1,0,1,1,0,1,1,0,1,1,1,0,1,1,0,1,1,0,1,1,0,1,0,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,0,1,1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,0,1,0,1,0,1,0,0,1,0,1,0,0,1,1,0,1,0]), "crc check failed");
+    }
+    #[test]
+    fn preamble_test_easy(){
+        assert!(is_preamble(&vec![200, 0, 200, 50, 40, 30,30, 200, 50, 200, 50, 30, 20, 20, 20, 20]), "preamble check failed");
+    }
+    #[test]
+    fn ppm_encoding_test_ones(){
+        let mag = wave_to_data(&vec![1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0]);
+        assert!(!mag.contains(&0), "ppm failed")
+        
+    }
+    #[test]
+    fn ppm_encoding_test_zeros(){
+        let mag = wave_to_data(&vec![0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1]);
+        assert!(!mag.contains(&1), "ppm failed")
+        
+    }
+    #[test]
+    fn detect_preamble_full_test(){
+        let mag = vec![0,0,0,0,0,0,0,0, 200, 0, 200, 50, 40, 30,30, 200, 50, 200, 50, 30, 20, 20, 20, 20, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
+        let (pre,crc) = detect_preamble(mag);
+        assert!(pre>=1, "overall preamble detection failed");
+        assert!(crc>=1, "crc detection failed");
+    }
 }
 

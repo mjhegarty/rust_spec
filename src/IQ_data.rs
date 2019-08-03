@@ -5,8 +5,8 @@ use std::cmp::{max, min};
 //Struct to store IQ data in. Would be interesting to see if
 #[derive(Debug)]
 pub struct IQdata{
-    in_phase: Vec<i8>,
-    quad: Vec<i8>,
+    in_phase: Vec<i16>,
+    quad: Vec<i16>,
 }
 //**Implementation of IQdata
 impl IQdata{
@@ -15,8 +15,8 @@ impl IQdata{
         let mut i = Vec::with_capacity((size/2)as usize);
         let mut q = Vec::with_capacity((size/2)as usize);
         for (num,val) in raw_data.iter().enumerate(){
-             if num%2 == 0 {i.push((*val as i16 -128)as i8);}//NOTE Dc bias makes me wanna do this kinda different 127.5 rather than 128
-             else {q.push((*val as i16 -128)as i8);}//TODO this just has to be the dumbest way to do this
+             if num%2 == 0 {i.push((*val as i16 -127)as i16);}//NOTE Dc bias makes me wanna do this kinda different 127.5 rather than 128
+             else {q.push((*val as i16 -127)as i16);}//TODO this just has to be the dumbest way to do this
         }
         IQdata{
             in_phase:i,
@@ -25,9 +25,11 @@ impl IQdata{
     //Returns vec(rust data struct not math thing) of scalar values using sqrt(q^2+i^2)
     pub fn get_mag(&self) -> Vec<u32>{ //TODO experiment with shifting values up to 256
         let mut mag = Vec::with_capacity(self.in_phase.len());
+        let mut temp:f32;
         for it in self.in_phase.iter().zip(self.quad.iter()) {
             let (i, q) = it;
-            mag.push((((*i as i32).pow(2)+(*q as i32).pow(2))as f64).sqrt() as u32);
+            temp = ((((*i as i32) * (*i as i32)) + ((*q as i32) * (*q as i32))) as f32).sqrt();
+            mag.push((temp*360.0).round()as u32);
 
         }
         mag
@@ -62,7 +64,7 @@ impl IQdata{
         0
     }    
 }
-fn larger_smaller_abs(a:&i8,b: &i8) -> (u16, u16){
+fn larger_smaller_abs(a:&i16,b: &i16) -> (u16, u16){
     let a1 = (*a).abs() as u16;
     let b1 = (*b).abs() as u16;
     (max(a1,b1), min(a1,b1))
