@@ -1,9 +1,4 @@
-#[macro_use] extern crate enum_primitive;
 extern crate rust_spec;
-//pub mod rtl_sdr;
-//pub mod sdr_reader;
-//pub mod IQ_data;
-//pub mod ads_b;
 use rust_spec::sdr_reader::{sync_read_samples, sync_read_samples_max_gain};
 use rust_spec::ads_b::{simple_preamble_test};
 
