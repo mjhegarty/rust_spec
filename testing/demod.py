@@ -32,8 +32,8 @@ import sys
 
 F_station = int(99.5e6)   
 Fc = F_station
-Fs = int(1140000)# Sample rate
-#Fs = int(2.048e6)# Sample rate
+#Fs = int(1140000)# Sample rate
+Fs = int(2.048e6)# Sample rate
 if len(sys.argv) > 1:
     filename = sys.argv[1]
 else :
@@ -43,12 +43,12 @@ data = open(filename, "r")
 for length, l in enumerate(data):
     pass
 length += 1
-data = open("data.txt", "r")
+data = open(filename, "r")
 reader = data.readlines()
 data = np.zeros((int(length/2)), dtype = 'complex')
 data1 = np.zeros((int(length)))
 for i, x in enumerate(reader):
-    data1[i]= float((float(x)/127.5)-1)
+    data1[i]= float((float(x)/127.5))
 
 for i in range(int(length/2)):
     data[i] = data1[i] + 1j*data1[i+int(length/2)]

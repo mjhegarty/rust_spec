@@ -38,6 +38,15 @@ pub fn simple_preamble_test(){
         let (detections,matches) = detect_preamble(mag);
         println!("Number of preambles detected in sequence is {}, {} matches", detections,matches); 
 }
+fn dl_format_check(data_bits : &[u8]) -> bool{
+    assert!(data_bits.len()==5, "Wrong dl format check length");
+    if data_bits[0]==1 && data_bits[1]==0 && data_bits[2]==0 && data_bits[3]==0 && data_bits[4]==1{
+        true
+    }
+    else{
+        false
+    }
+}
 fn mod2_div(divisor: &Vec<u8>, buffer:&mut VecDeque<u8>, carrydown_bit:&u8){
     buffer.push_back(*carrydown_bit);
     if buffer.pop_front().unwrap()==1{
@@ -65,8 +74,8 @@ pub fn wave_to_data(mag: &[u32]) -> Vec<u8>{
     assert!(mag.len()==224, "Wave wrong amount of data");
     let mut data: Vec<u8> = Vec::with_capacity(mag.len()/2 as usize);
     let mut iter = mag.iter().peekable();
-    let mut first = 0;
-    let mut second = 0;
+    let mut first;
+    let mut second;
     let mut last = 1;
     while iter.peek()!=None{
         first = *iter.next().unwrap();
@@ -87,22 +96,22 @@ pub fn wave_to_data(mag: &[u32]) -> Vec<u8>{
     data
 }
 //wave to data but with a teeny bit of phase correction
-pub fn wave_to_data_PC(mag: &[u32]) -> Vec<u8>{
+pub fn wave_to_data_pc(mag: &[u32]) -> Vec<u8>{
     assert!(mag.len()==224, "Wave wrong amount of data");
     let mut data: Vec<u8> = Vec::with_capacity(mag.len()/2 as usize);
     let mut iter = mag.iter().peekable();
     let mut first = 0;
-    let mut second = 0;
+    let mut second;
     let mut last = 2;
     while iter.peek()!=None{
-        if (last ==0){
+        if last ==0{
             first = (*iter.next().unwrap()*4)/5;
         }
-        else if (last ==1){
+        else if last ==1{
             first = (*iter.next().unwrap()*5)/4;
 
         }
-        else if (last ==2){
+        else if last ==2{
             first =*iter.next().unwrap();
 
         }
@@ -172,6 +181,7 @@ pub fn detect_preamble(mag: Vec<u32>) -> (i32, i32) {
     let mut passed_crc = 0;
     let mut i = 0;
     let mut data;
+    let mut data_p;
     loop{        
         if i>(mag.len()-240){ break;}
         if is_preamble(&mag[i..(i+16)]){//So rust ranges are inclusive, exclusive
@@ -184,8 +194,11 @@ pub fn detect_preamble(mag: Vec<u32>) -> (i32, i32) {
             }
             else{
              //   println!("crc failed...");
-                data = wave_to_data_PC(&mag[i+16 ..(i+16+224)]);
-                if crc_check(&data){
+                data_p = wave_to_data_pc(&mag[i+16 ..(i+16+224)]);
+                if dl_format_check(&data_p[0 .. 5]){
+                    println!("DL format is correct!");
+                }
+                if crc_check(&data_p){
                     println!("CRC check passed in phase correction!");
                     passed_crc+=1;
                     i +=240;
@@ -241,6 +254,11 @@ mod tests{
         let (pre,crc) = detect_preamble(mag);
         assert!(pre>=1, "overall preamble detection failed");
         assert!(crc>=1, "crc detection failed");
+    }
+    #[test]
+    fn check_dl_format(){
+        let mag = vec![1,0,0,0,1];
+        assert!(dl_format_check(&mag), "dl format checker doesn't work");
     }
 }
 

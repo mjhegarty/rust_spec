@@ -1,10 +1,8 @@
 extern crate num;
 use num::FromPrimitive;
 use libc::{c_int,c_char, c_void};
-use std::{str,ptr};
+use std::{str};
 use std::ffi::CStr;
-use std::time;
-use std::thread::{sleep};
 //person who also did this did something like this
 enum rtlsdr_dev_t {}
 //Errors as listed in jpoirier's implementation
