@@ -4,7 +4,7 @@ use libc::{c_int,c_char, c_void};
 use std::{str};
 use std::ffi::CStr;
 //person who also did this did something like this
-enum rtlsdr_dev_t {}
+enum RtlSdrDevT{}
 //Errors as listed in jpoirier's implementation
 enum_from_primitive!{
 #[derive(Debug, PartialEq)]
@@ -29,8 +29,8 @@ pub enum Error {
     Unknown=-17,
 }
 }
-pub struct RTL_SDR{
-   dev: *mut rtlsdr_dev_t,
+pub struct RtlSdr{
+   dev: *mut RtlSdrDevT,
 }
 
 //c code transformation functions
@@ -39,28 +39,30 @@ pub struct RTL_SDR{
 
 
 
+#[allow(dead_code)]
 fn c_string_to_r_string(c: *const c_char) -> String{
     let c_str = unsafe { CStr::from_ptr(c) };
     String::from(str::from_utf8(c_str.to_bytes()).unwrap())
 }
 
 #[link(name = "rtlsdr")]
+#[allow(dead_code)]
 extern "C" {
     fn rtlsdr_get_device_count() -> u32;
     fn rtlsdr_get_device_name(index:u32) -> *const c_char;
-    fn rtlsdr_open(dev: *mut *mut rtlsdr_dev_t, index:u32) -> c_int;
-    fn rtlsdr_close(dev: *mut rtlsdr_dev_t) -> c_int;
-    fn rtlsdr_set_center_freq(dev: *mut rtlsdr_dev_t, freq:u32) -> c_int;
-    fn rtlsdr_get_center_freq(dev: *mut rtlsdr_dev_t) ->c_int;
-    fn rtlsdr_set_sample_rate(dev: *mut rtlsdr_dev_t, samp_rate:u32) -> c_int;
-    fn rtlsdr_get_sample_rate(dev: *mut rtlsdr_dev_t) -> c_int;
-    fn rtlsdr_set_tuner_bandwidth(dev: *mut rtlsdr_dev_t, bw:u32) -> c_int;
-    fn rtlsdr_read_sync(dev: *mut rtlsdr_dev_t,buf:*mut c_void,len: i32,n_read: *mut c_int) -> c_int;
-    fn rtlsdr_reset_buffer(dev: *mut rtlsdr_dev_t) -> c_int;
-    fn rtlsdr_set_agc_mode(dev: *mut rtlsdr_dev_t, on:i32) -> c_int;
-    fn rtlsdr_set_tuner_gain_mode(dev: *mut rtlsdr_dev_t, mode:i32) -> c_int;
-    fn rtlsdr_set_tuner_gain(dev: *mut rtlsdr_dev_t, gain: i32) -> c_int;
-    fn rtlsdr_get_tuner_gains(dev: *mut rtlsdr_dev_t,gains: *mut c_int)->c_int;
+    fn rtlsdr_open(dev: *mut *mut RtlSdrDevT, index:u32) -> c_int;
+    fn rtlsdr_close(dev: *mut RtlSdrDevT) -> c_int;
+    fn rtlsdr_set_center_freq(dev: *mut RtlSdrDevT, freq:u32) -> c_int;
+    fn rtlsdr_get_center_freq(dev: *mut RtlSdrDevT) ->c_int;
+    fn rtlsdr_set_sample_rate(dev: *mut RtlSdrDevT, samp_rate:u32) -> c_int;
+    fn rtlsdr_get_sample_rate(dev: *mut RtlSdrDevT) -> c_int;
+    fn rtlsdr_set_tuner_bandwidth(dev: *mut RtlSdrDevT, bw:u32) -> c_int;
+    fn rtlsdr_read_sync(dev: *mut RtlSdrDevT,buf:*mut c_void,len: i32,n_read: *mut c_int) -> c_int;
+    fn rtlsdr_reset_buffer(dev: *mut RtlSdrDevT) -> c_int;
+    fn rtlsdr_set_agc_mode(dev: *mut RtlSdrDevT, on:i32) -> c_int;
+    fn rtlsdr_set_tuner_gain_mode(dev: *mut RtlSdrDevT, mode:i32) -> c_int;
+    fn rtlsdr_set_tuner_gain(dev: *mut RtlSdrDevT, gain: i32) -> c_int;
+    fn rtlsdr_get_tuner_gains(dev: *mut RtlSdrDevT,gains: *mut c_int)->c_int;
 }
 
 pub fn c_to_err(err: i32) -> Error {
@@ -68,16 +70,16 @@ pub fn c_to_err(err: i32) -> Error {
 }
 //rtlsdrlibrary overhead functions
 
-impl RTL_SDR{
+impl RtlSdr{
     //TODO have all functions return custom error type defined above
     pub fn new() ->Self{
         //TODO add indexing for multiple devices?
         unsafe{//not sure if all of this needs unsafe
             assert!(rtlsdr_get_device_count()>0, "No device found");
-            let mut dev: *mut rtlsdr_dev_t = std::ptr::null_mut();
-            let result = rtlsdr_open(&mut dev as *mut *mut rtlsdr_dev_t, 0);
+            let mut dev: *mut RtlSdrDevT = std::ptr::null_mut();
+            let result = rtlsdr_open(&mut dev as *mut *mut RtlSdrDevT, 0);
             println! ("result of open is ... {}", result);
-            RTL_SDR{dev: dev as *mut rtlsdr_dev_t}
+            RtlSdr{dev: dev as *mut RtlSdrDevT}
         }
     }
     pub fn close_device(self) -> Result<(), Error> {

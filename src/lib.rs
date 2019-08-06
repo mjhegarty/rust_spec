@@ -2,5 +2,5 @@
 
 pub mod rtl_sdr;
 pub mod sdr_reader;
-mod IQ_data;
+mod iq_data;
 pub mod ads_b;

@@ -1,9 +1,9 @@
 //Just some functions that use rtl_sdr and IQdata
 //want to keep main function clean
-use super::rtl_sdr::{RTL_SDR, Error};
-use super::IQ_data::IQdata;
+use super::rtl_sdr::{RtlSdr, Error};
+use super::iq_data::IQdata;
 pub fn sync_read_samples(num_samples:i32,center_frequency:u32, sampling_rate:u32,) {
-    let mut dev = RTL_SDR::new();
+    let mut dev = RtlSdr::new();
     dev.reset_buffer().unwrap();
     dev.set_tuner_gain_mode(0).unwrap();
     dev.set_agc(1).unwrap();
@@ -23,7 +23,7 @@ pub fn sync_read_samples(num_samples:i32,center_frequency:u32, sampling_rate:u32
     data.write("unformatted.txt".to_string());
 } 
 pub fn sync_read_samples_max_gain(num_samples:i32,center_frequency:u32, sampling_rate:u32,) {
-    let mut dev = RTL_SDR::new();
+    let mut dev = RtlSdr::new();
     dev.reset_buffer().unwrap();
     dev.set_tuner_gain_mode(1).unwrap();
     dev.set_agc(0).unwrap();//NOTE not sure if turning this off affects other areas of the tuner TBD
@@ -46,7 +46,7 @@ pub fn sync_read_samples_max_gain(num_samples:i32,center_frequency:u32, sampling
     data.write("test.txt".to_string());
 }
 pub fn sync_return_samples_max_gain(num_samples:i32,center_frequency:u32, sampling_rate:u32,)-> IQdata {
-    let mut dev = RTL_SDR::new();
+    let mut dev = RtlSdr::new();
     dev.reset_buffer().unwrap();
     dev.set_tuner_gain_mode(1).unwrap();
     dev.set_agc(0).unwrap();//NOTE not sure if turning this off affects other areas of the tuner TBD
@@ -67,7 +67,7 @@ pub fn sync_return_samples_max_gain(num_samples:i32,center_frequency:u32, sampli
     data
 }
 pub fn sync_return_samples(num_samples:i32,center_frequency:u32, sampling_rate:u32,)->IQdata {
-    let mut dev = RTL_SDR::new();
+    let mut dev = RtlSdr::new();
     dev.reset_buffer().unwrap();
     dev.set_tuner_gain_mode(0).unwrap();
     dev.set_agc(1).unwrap();

@@ -1,8 +1,6 @@
-use super::sdr_reader::{sync_return_samples_max_gain,sync_return_samples};
-use super::IQ_data::{IQdata};
-use itertools::Itertools;
+use super::sdr_reader::{sync_return_samples_max_gain};
+use super::iq_data::{IQdata};
 use std::collections::VecDeque;
-use std::iter::FromIterator;
 
 
 
@@ -22,7 +20,8 @@ fn get_mag(raw_data:IQdata) -> Vec<u32> {
 //its tricky because the data section is going to be in groups
 //of 6, so it might be easier to just leave it as bits.
 //dump1090 uses bytes so it probably is the better option
-fn pack_data(raw_data: Vec<u32>) -> Vec<u32> {        
+#[allow(dead_code)]
+fn pack_data(_raw_data: Vec<u32>) -> Vec<u32> {        
     unimplemented!()
 }
 //Hard coded in test of crc checker to make sure that's not the problem
@@ -139,7 +138,7 @@ pub fn wave_to_data_pc(mag: &[u32]) -> Vec<u8>{
 }
 //data processing function will change to take data, not
 //just reference it
-pub fn data_processing(data: &[u32]) -> u32{
+pub fn data_processing(_data: &[u32]) -> u32{
     unimplemented!()
 }
 pub fn is_preamble(mag: &[u32]) -> bool
