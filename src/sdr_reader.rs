@@ -73,7 +73,6 @@ pub fn sync_return_samples(num_samples:i32,center_frequency:u32, sampling_rate:u
     dev.set_agc(1).unwrap();
     dev.set_center_freq(center_frequency).unwrap();
     assert!(dev.get_center_freq()==center_frequency, "failure in setting frequency");
-    //dev.set_sample_rate(2048000);
     dev.set_sample_rate(sampling_rate).unwrap();
     assert!(dev.get_sample_rate()==sampling_rate, "failure in setting sampling rate");
     //Do a dummy read just to be safe

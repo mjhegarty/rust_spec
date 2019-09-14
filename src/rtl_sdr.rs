@@ -185,24 +185,24 @@ impl RtlSdr{
         //they have a seperate bytes to read function that gets that amount subtracted from it
         //every time they read in bytes. See RTL_SDR.c line 236 for details
         let mut err = -1;
-            while bytes_left>=n_read {
-                unsafe{
-                    err = rtlsdr_read_sync(self.dev,buf.as_mut_ptr() as *mut c_void, block_size,&mut n_read as *mut c_int);
-                }
-                if err != 0{
-                    println!("read error, something went wrong");
-                    return (buf, c_to_err(err));
-                }
-                else if n_read != block_size {
-                    println!("read error, samples were lost!");
-                }
-                else {
-                   read_data.append(&mut buf.clone()); 
-                   bytes_left -= n_read;
+        while bytes_left>=n_read {
+            unsafe{
+                err = rtlsdr_read_sync(self.dev,buf.as_mut_ptr() as *mut c_void, block_size,&mut n_read as *mut c_int);
+            }
+            if err != 0{
+                println!("read error, something went wrong");
+                return (buf, c_to_err(err));
+            }
+            else if n_read != block_size {
+                println!("read error, samples were lost!");
+            }
+            else {
+               read_data.append(&mut buf.clone()); 
+               bytes_left -= n_read;
 
-                }
-            } 
-            (read_data, c_to_err(err)) 
+            }
+        } 
+        (read_data, c_to_err(err)) 
     }
     //Documentation for C code says to run this function before any reads
     pub fn reset_buffer(&mut self) -> Result<(), Error>{

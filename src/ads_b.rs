@@ -32,7 +32,7 @@ pub fn simple_print_test(){
     println!("mag iq_data is {:?}", mag);
 }
 pub fn simple_preamble_test(){
-        let data = get_iq_data(1024*100000);
+        let data = get_iq_data(1024*10000);
         let mag = get_mag(data);
         let (detections,matches) = detect_preamble(mag);
         println!("Number of preambles detected in sequence is {}, {} matches", detections,matches); 
@@ -50,8 +50,8 @@ fn mod2_div(divisor: &Vec<u8>, buffer:&mut VecDeque<u8>, carrydown_bit:&u8){
     buffer.push_back(*carrydown_bit);
     if buffer.pop_front().unwrap()==1{
         for it in divisor.iter().zip(buffer.iter_mut()){
-            let (a,b) = it;
-            *b = (*b)^(*a);
+            let (div,buf) = it;
+            *buf = (*buf)^(*div);
         }
     }
 }
@@ -59,11 +59,13 @@ pub fn crc_check(data_bits : &Vec<u8>) -> bool{
     //NOTE so this is a 24 bit crc, so the gen is really 25 bits, but I only want the 24 least significant
     //because the 1st one is implied in my algorithim
     let gen = vec![1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,0,0,0,0,1,0,0,1];   
+
     let mut buffer: VecDeque<u8> = VecDeque::from(vec![0; 24]);
     assert!(data_bits.len() == (112), "data packet not correct size");
     for x in data_bits {
         mod2_div(&gen,&mut buffer,x);
     }
+    println!("buffer is {:?}",buffer);
     if buffer.contains(&1){false}
     else {true}
 }
@@ -186,6 +188,11 @@ pub fn detect_preamble(mag: Vec<u32>) -> (i32, i32) {
         if is_preamble(&mag[i..(i+16)]){//So rust ranges are inclusive, exclusive
             data = wave_to_data(&mag[i+16..(i+16+224)]);
             //println!("differential data read: {:?}",data);
+            /*
+            if dl_format_check(&data[0 .. 5]){
+                println!("DL format is correct!");
+            }
+            */
             if crc_check(&data){
                 println!("CRC check passed!");
                 passed_crc+=1;
@@ -194,9 +201,6 @@ pub fn detect_preamble(mag: Vec<u32>) -> (i32, i32) {
             else{
              //   println!("crc failed...");
                 data_p = wave_to_data_pc(&mag[i+16 ..(i+16+224)]);
-                if dl_format_check(&data_p[0 .. 5]){
-                    println!("DL format is correct!");
-                }
                 if crc_check(&data_p){
                     println!("CRC check passed in phase correction!");
                     passed_crc+=1;
