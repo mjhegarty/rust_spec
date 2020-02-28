@@ -1,4 +1,4 @@
-use super::sdr_reader::{sync_return_samples_max_gain};
+use super::sdr_reader::{sync_return_samples_max_gain,sync_return_samples};
 use super::iq_data::{IQdata};
 use std::collections::VecDeque;
 
@@ -8,6 +8,7 @@ use std::collections::VecDeque;
 fn get_iq_data(n_samples:i32) ->IQdata {
     //For ADS-B we use the 1050 MHz frequency with a sampling rate of 2MHz
     let iq_data = sync_return_samples_max_gain(n_samples, 1_050_000_000, 2_000_000);
+//    let iq_data = sync_return_samples(n_samples, 1_050_000_000, 2_000_000);
     println!("samples read successfully");
     iq_data
 }
@@ -32,7 +33,7 @@ pub fn simple_print_test(){
     println!("mag iq_data is {:?}", mag);
 }
 pub fn simple_preamble_test(){
-        let data = get_iq_data(1024*10000);
+        let data = get_iq_data(1024*100);
         let mag = get_mag(data);
         let (detections,matches) = detect_preamble(mag);
         println!("Number of preambles detected in sequence is {}, {} matches", detections,matches); 
@@ -65,7 +66,6 @@ pub fn crc_check(data_bits : &Vec<u8>) -> bool{
     for x in data_bits {
         mod2_div(&gen,&mut buffer,x);
     }
-    println!("buffer is {:?}",buffer);
     if buffer.contains(&1){false}
     else {true}
 }
